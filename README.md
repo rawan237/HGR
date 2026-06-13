@@ -1,0 +1,1 @@
+A smart door lock controlled by hand gestures, combining a custom-trained YOLOv11 hand gesture recognition model with Arduino hardware. Real-time gestures captured from a webcam are classified in Python and sent over serial to an Arduino, which drives a servo lock, LEDs, and a buzzer.

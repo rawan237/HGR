@@ -1,0 +1,5 @@
+*.msi
+*.mp4
+*.avi
+venv/
+__pycache__/

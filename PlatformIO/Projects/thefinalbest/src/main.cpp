@@ -4,8 +4,6 @@
 Servo doorServo;
 
 // ── Pin definitions ──────────────────────────
-const int TRIG_PIN   = 2;
-const int ECHO_PIN   = 3;
 const int SERVO_PIN  = 6;
 const int BUZZER     = 7;
 const int YELLOW_LED = 8;
@@ -23,16 +21,7 @@ bool blinkState = false;
 void allLedsOff();
 void goWaiting();
 
-long getDistance() {
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG_PIN, LOW);
-  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
-  return duration * 0.034 / 2;
-}
-
+// ── LED helpers ───────────────────────────────
 void allLedsOff() {
   digitalWrite(YELLOW_LED, LOW);
   digitalWrite(GREEN_LED,  LOW);
@@ -40,6 +29,7 @@ void allLedsOff() {
   digitalWrite(BLUE_LED,   LOW);
 }
 
+// ── State functions ───────────────────────────
 void goWaiting() {
   currentState = WAITING;
   allLedsOff();
@@ -53,7 +43,7 @@ void goUnlocked() {
   currentState = UNLOCKED;
   allLedsOff();
   noTone(BUZZER);
-  doorServo.write(90);
+  doorServo.write(0);
   digitalWrite(GREEN_LED, HIGH);
   Serial.println("STATE: UNLOCKED — Green ON");
 }
@@ -62,7 +52,7 @@ void goLocked() {
   currentState = LOCKED;
   allLedsOff();
   noTone(BUZZER);
-  doorServo.write(0);
+  doorServo.write(90);
   digitalWrite(RED_LED, HIGH);
   Serial.println("STATE: LOCKED — Red ON");
 }
@@ -77,18 +67,17 @@ void goAlarm() {
 void goCancel() {
   noTone(BUZZER);
   allLedsOff();
-  digitalWrite(BLUE_LED, HIGH);  // ← زودي السطر ده
-  delay(1000);                    // يفضل أزرق ثانية
+  digitalWrite(BLUE_LED, HIGH);
+  delay(1000);
   goWaiting();
   Serial.println("STATE: CANCELLED — back to WAITING");
 }
 
+// ── Setup ─────────────────────────────────────
 void setup() {
   Serial.begin(9600);
   doorServo.attach(SERVO_PIN);
 
-  pinMode(TRIG_PIN,   OUTPUT);
-  pinMode(ECHO_PIN,   INPUT);
   pinMode(YELLOW_LED, OUTPUT);
   pinMode(GREEN_LED,  OUTPUT);
   pinMode(RED_LED,    OUTPUT);
@@ -99,29 +88,36 @@ void setup() {
   Serial.println("System ready.");
 }
 
+// ── Main loop ─────────────────────────────────
 void loop() {
-  long dist = getDistance();
-  if (dist > 0 && dist < 50) {
-    if (currentState == WAITING) {
-      Serial.println("Person detected!");
-    }
-  }
 
   if (Serial.available() > 0) {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
     cmd.toUpperCase();
+
     Serial.print("Received: ");
     Serial.println(cmd);
 
-    if      (cmd == "UNLOCK") goUnlocked();
-    else if (cmd == "LOCK")   goLocked();
-    else if (cmd == "WAIT")   goWaiting();
-    else if (cmd == "ALARM")  goAlarm();
-    else if (cmd == "CANCEL") goCancel();
-    else Serial.println("Unknown command");
+   
+    if (currentState == ALARM_ON) {
+      if (cmd == "CANCEL") {
+        goCancel();
+      } else {
+        Serial.println("ALARM ACTIVE — only CANCEL accepted");
+      }
+    }
+    else {
+      if      (cmd == "UNLOCK") goUnlocked();
+      else if (cmd == "LOCK")   goLocked();
+      else if (cmd == "WAIT")   goWaiting();
+      else if (cmd == "ALARM")  goAlarm();
+      else if (cmd == "CANCEL") goCancel();
+      else Serial.println("Unknown command");
+    }
   }
 
+  // Blink red LED during ALARM
   if (currentState == ALARM_ON) {
     unsigned long now = millis();
     if (now - blinkMillis >= 300) {
